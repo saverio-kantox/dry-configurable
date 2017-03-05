@@ -170,188 +170,246 @@ RSpec.shared_examples 'a configurable class' do
           end
         end
       end
+
+      context 'Dry::Types' do
+        before do
+          klass.setting :db, Types::String, reader: true
+        end
+
+        it 'returns default' do
+          expect(klass.db).to eq 'test'
+        end
+      end
     end
 
     describe 'configuration' do
       context 'without nesting' do
-        context 'without processor' do
-          before do
-            klass.setting :dsn, 'sqlite:memory'
-          end
+        context 'Dry::Types' do
+          context 'without processor' do
+            before do
+              klass.setting :db, Types::StringCoercible, reader: true
+            end
 
-          before do
-            klass.configure do |config|
-              config.dsn = 'jdbc:sqlite:memory'
+            before do
+              klass.configure do |config|
+                config.db = 1
+              end
+            end
+
+            it 'updates the config value' do
+              expect(klass.db).to eq '1'
             end
           end
 
-          it 'updates the config value' do
-            expect(klass.config.dsn).to eq('jdbc:sqlite:memory')
-          end
-        end
-
-        context 'with processor' do
-          before do
-            klass.setting(:dsn, 'sqlite') { |dsn| "#{dsn}:memory" }
-          end
-
-          before do
-            klass.configure do |config|
-              config.dsn = 'jdbc:sqlite'
+          context 'with processor' do
+            before do
+              klass.setting(:dsn, Types::StringCoercible ) { |dsn| dsn + "tested" }
             end
-          end
 
-          it 'updates the config value' do
-            expect(klass.config.dsn).to eq('jdbc:sqlite:memory')
+            before do
+              klass.configure do |config|
+                config.dsn = 1
+              end
+            end
+
+            it 'updates the config value' do
+              expect(klass.config.dsn).to eq('1tested')
+            end
           end
         end
       end
 
-      context 'with nesting' do
-        context 'without processor' do
-          before do
-            klass.setting :database do
-              setting :dsn, 'sqlite:memory'
-            end
+      context 'without processor' do
+        before do
+          klass.setting :dsn, 'sqlite:memory'
+        end
 
-            klass.configure do |config|
-              config.database.dsn = 'jdbc:sqlite:memory'
-            end
-          end
-
-          it 'updates the config value' do
-            expect(klass.config.database.dsn).to eq('jdbc:sqlite:memory')
+        before do
+          klass.configure do |config|
+            config.dsn = 'jdbc:sqlite:memory'
           end
         end
 
-        context 'with processor' do
-          before do
-            klass.setting :database do
-              setting(:dsn, 'sqlite') { |dsn| "#{dsn}:memory" }
-            end
-
-            klass.configure do |config|
-              config.database.dsn = 'jdbc:sqlite'
-            end
-          end
-
-          it 'updates the config value' do
-            expect(klass.config.database.dsn).to eq('jdbc:sqlite:memory')
-          end
-        end
-      end
-
-      context 'when inherited' do
-        context 'without processor' do
-          before do
-            klass.setting :dsn
-            klass.configure do |config|
-              config.dsn = 'jdbc:sqlite:memory'
-            end
-          end
-
-          subject!(:subclass) { Class.new(klass) }
-
-          it 'retains its configuration' do
-            expect(subclass.config.dsn).to eq('jdbc:sqlite:memory')
-          end
-
-          context 'when the inherited config is modified' do
-            before do
-              subclass.configure do |config|
-                config.dsn = 'jdbc:sqlite:file'
-              end
-            end
-
-            it 'does not modify the original' do
-              expect(klass.config.dsn).to eq('jdbc:sqlite:memory')
-              expect(subclass.config.dsn).to eq('jdbc:sqlite:file')
-            end
-          end
-        end
-
-        context 'with processor' do
-          before do
-            klass.setting(:dsn) { |dsn| "#{dsn}:memory" }
-            klass.configure do |config|
-              config.dsn = 'jdbc:sqlite'
-            end
-          end
-
-          subject!(:subclass) { Class.new(klass) }
-
-          it 'retains its configuration' do
-            expect(subclass.config.dsn).to eq('jdbc:sqlite:memory')
-          end
-
-          context 'when the inherited config is modified' do
-            before do
-              subclass.configure do |config|
-                config.dsn = 'sqlite'
-              end
-            end
-
-            it 'does not modify the original' do
-              expect(klass.config.dsn).to eq('jdbc:sqlite:memory')
-              expect(subclass.config.dsn).to eq('sqlite:memory')
-            end
-          end
-        end
-
-        context 'when the inherited settings are modified' do
-          before do
-            klass.setting :dsn
-            subclass.setting :db
-            klass.configure do |config|
-              config.dsn = 'jdbc:sqlite:memory'
-            end
-          end
-
-          subject!(:subclass) { Class.new(klass) }
-
-          it 'does not modify the original' do
-            expect(klass.settings).to_not include(:db)
-          end
+        it 'updates the config value' do
+          expect(klass.config.dsn).to eq('jdbc:sqlite:memory')
         end
       end
     end
 
-    context 'Test Interface' do
-      before { klass.enable_test_interface }
-
-      describe 'reset_config' do
+    context 'with nesting' do
+      context 'without processor' do
         before do
-          klass.setting :dsn, nil
-          klass.setting :pool do
-            setting :size, nil
+          klass.setting :database do
+            setting :dsn, 'sqlite:memory'
           end
 
           klass.configure do |config|
-            config.dsn = 'sqlite:memory'
-            config.pool.size = 5
+            config.database.dsn = 'jdbc:sqlite:memory'
           end
-
-          klass.reset_config
         end
 
-        it 'resets configuration to default values' do
-          expect(klass.config.dsn).to be_nil
-          expect(klass.config.pool.size).to be_nil
+        it 'updates the config value' do
+          expect(klass.config.database.dsn).to eq('jdbc:sqlite:memory')
+        end
+      end
+
+      context 'with Dry::Types' do
+        context 'without processor' do
+          before do
+            klass.setting :database do
+              setting :dsn, Types::String
+            end
+          end
+
+          it 'updates the config value' do
+            expect(klass.config.database.dsn).to eq('test')
+          end
+        end
+
+        context 'with processor' do
+          before do
+            klass.setting :database do
+              setting(:dsn, Types::StringCoercible) { |dsn| dsn + "tested" }
+            end
+
+            klass.configure do |config|
+              config.database.dsn = :hello
+            end
+          end
+
+          it 'updates the config value' do
+            expect(klass.config.database.dsn).to eq('hellotested')
+          end
+        end
+      end
+
+      context 'with processor' do
+        before do
+          klass.setting :database do
+            setting(:dsn, 'sqlite') { |dsn| "#{dsn}:memory" }
+          end
+
+          klass.configure do |config|
+            config.database.dsn = 'jdbc:sqlite'
+          end
+        end
+
+        it 'updates the config value' do
+          expect(klass.config.database.dsn).to eq('jdbc:sqlite:memory')
         end
       end
     end
 
-    context 'Try to set new value after config has been created' do
-      before do
-        klass.setting :dsn, 'sqlite:memory'
-        klass.config
+    context 'when inherited' do
+      context 'without processor' do
+        before do
+          klass.setting :dsn
+          klass.configure do |config|
+            config.dsn = 'jdbc:sqlite:memory'
+          end
+        end
+
+        subject!(:subclass) { Class.new(klass) }
+
+        it 'retains its configuration' do
+          expect(subclass.config.dsn).to eq('jdbc:sqlite:memory')
+        end
+
+        context 'when the inherited config is modified' do
+          before do
+            subclass.configure do |config|
+              config.dsn = 'jdbc:sqlite:file'
+            end
+          end
+
+          it 'does not modify the original' do
+            expect(klass.config.dsn).to eq('jdbc:sqlite:memory')
+            expect(subclass.config.dsn).to eq('jdbc:sqlite:file')
+          end
+        end
       end
 
-      it 'raise an exception' do
-        expect { klass.setting :pool, 5 }.to raise_error(
-          Dry::Configurable::AlreadyDefinedConfig
-        )
+      context 'with processor' do
+        before do
+          klass.setting(:dsn) { |dsn| "#{dsn}:memory" }
+          klass.configure do |config|
+            config.dsn = 'jdbc:sqlite'
+          end
+        end
+
+        subject!(:subclass) { Class.new(klass) }
+
+        it 'retains its configuration' do
+          expect(subclass.config.dsn).to eq('jdbc:sqlite:memory')
+        end
+
+        context 'when the inherited config is modified' do
+          before do
+            subclass.configure do |config|
+              config.dsn = 'sqlite'
+            end
+          end
+
+          it 'does not modify the original' do
+            expect(klass.config.dsn).to eq('jdbc:sqlite:memory')
+            expect(subclass.config.dsn).to eq('sqlite:memory')
+          end
+        end
       end
+
+      context 'when the inherited settings are modified' do
+        before do
+          klass.setting :dsn
+          subclass.setting :db
+          klass.configure do |config|
+            config.dsn = 'jdbc:sqlite:memory'
+          end
+        end
+
+        subject!(:subclass) { Class.new(klass) }
+
+        it 'does not modify the original' do
+          expect(klass.settings).to_not include(:db)
+        end
+      end
+    end
+  end
+
+  context 'Test Interface' do
+    before { klass.enable_test_interface }
+
+    describe 'reset_config' do
+      before do
+        klass.setting :dsn, nil
+        klass.setting :pool do
+          setting :size, nil
+        end
+
+        klass.configure do |config|
+          config.dsn = 'sqlite:memory'
+          config.pool.size = 5
+        end
+
+        klass.reset_config
+      end
+
+      it 'resets configuration to default values' do
+        expect(klass.config.dsn).to be_nil
+        expect(klass.config.pool.size).to be_nil
+      end
+    end
+  end
+
+  context 'Try to set new value after config has been created' do
+    before do
+      klass.setting :dsn, 'sqlite:memory'
+      klass.config
+    end
+
+    it 'raise an exception' do
+      expect { klass.setting :pool, 5 }.to raise_error(
+        Dry::Configurable::AlreadyDefinedConfig
+      )
     end
   end
 end
